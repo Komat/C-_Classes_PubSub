@@ -1,45 +1,137 @@
 #include <iostream>
-#include "PubSub.h"
+#include <vector>
+#include <map>
 
 
-PubSub pub_sub;
+typedef void (*topicFunctionPtr)(std::string topic, void *data);
+
+typedef struct topic_data {
+    topicFunctionPtr subscriber;
+} TopicData;
+
+
+std::map<const std::string, std::map<int, std::vector<TopicData> > > _subscriberList;
+
+
+bool hasTopic(const std::string &topic) {
+    return (_subscriberList.find(topic) != _subscriberList.end());
+}
+
+void subscribe(const std::string &topic, topicFunctionPtr subscriber, int priority = 0) {
+    TopicData data;
+    data.subscriber = subscriber;
+    _subscriberList[topic][priority].push_back(data);
+}
+
+
+void unsubscribe(const std::string &topic, topicFunctionPtr subscriber) {
+    if (!hasTopic(topic)) return;
+
+    int counter = 0;
+
+    std::map<int, std::vector<TopicData> > &list = _subscriberList[topic]; // priority Array
+
+    for (std::map<int, std::vector<TopicData> >::reverse_iterator i = list.rbegin(); i != list.rend(); ++i) {
+        std::vector<TopicData> &funcList = i->second;
+
+        for (std::vector<TopicData>::iterator data = funcList.begin(); data != funcList.end(); ++data) {
+            if (data->subscriber == subscriber) {
+                funcList.erase(funcList.begin() + counter);
+            }
+
+            counter++;
+
+        }
+    }
+
+    if (list.empty()) _subscriberList.erase(topic);
+}
+
+
+
+void unsubscribeAll(const std::string &topic) {
+    if (!hasTopic(topic)) return;
+
+    std::map<int, std::vector<TopicData> > &list = _subscriberList[topic];
+    std::map<int, std::vector<TopicData> >::iterator data = list.begin();
+
+    while (data != list.end()) {
+        list.erase(data);
+        if (data->second.empty()) {
+            list.erase(data++);
+        } else {
+            ++data;
+        }
+    }
+
+    if (list.empty()) _subscriberList.erase(topic);
+}
+
+
+
+void publish(std::string topic, void *data) {
+
+    if (!hasTopic(topic)) {
+        return;
+    }
+
+    std::map<int, std::vector<TopicData> > &list = _subscriberList[topic];
+
+    for (std::map<int, std::vector<TopicData> >::reverse_iterator i = list.rbegin(); i != list.rend(); ++i) {
+        std::vector<TopicData> &funcList = i->second;
+        for (std::vector<TopicData>::iterator func = funcList.begin(); func != funcList.end(); ++func) {
+            (*func->subscriber)(topic, data);
+        }
+    }
+
+}
+
 
 const std::string INITIALIZE = "initialize";
 
 
-void subscriber(const std::string topic, void *data) {
+void subscribeHandler(const std::string topic, void *data) {
+    std::cout << " " << std::endl;
     std::cout << ">>>>>>>>>>>>>>>>>>" << std::endl;
     std::cout << topic << std::endl;
     std::cout << (char *) data << std::endl;
     std::cout << ">>>>>>>>>>>>>>>>>>" << std::endl;
-    pub_sub.unsubscribe(INITIALIZE, (topicFunctionPtr) subscriber);
+    unsubscribe(INITIALIZE, (topicFunctionPtr) subscribeHandler);
 }
-
 
 void subSubscriber(const std::string topic, void *data) {
-    std::cout << "///////////////////////////////" << std::endl;
+    std::cout << " " << std::endl;
     std::cout << "///////////////////////////////" << std::endl;
     std::cout << topic << std::endl;
     std::cout << (char *) data << std::endl;
     std::cout << "\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\" << std::endl;
-    std::cout << "\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\" << std::endl;
 }
 
+void subSubSubscriber(const std::string topic, void *data) {
+    std::cout << " " << std::endl;
+    std::cout << "-------------------------------------------------------------------------" << std::endl;
+    std::cout << topic << std::endl;
+    std::cout << (char *) data << std::endl;
+    std::cout << "-------------------------------------------------------------------------" << std::endl;
+}
 
 int main() {
 
-    std::cout << "READY" << std::endl;
 
-    pub_sub.subscribe(INITIALIZE, (topicFunctionPtr) subscriber);
-    pub_sub.subscribe(INITIALIZE, (topicFunctionPtr) subSubscriber);
+    subscribe(INITIALIZE, (topicFunctionPtr) subscribeHandler);
+    subscribe(INITIALIZE, (topicFunctionPtr) subSubscriber);
+    subscribe(INITIALIZE, (topicFunctionPtr) subSubSubscriber);
+
 
     char charData[] = "TEST";
 
-    pub_sub.publish(INITIALIZE, &charData);
 
-    pub_sub.publish(INITIALIZE, &charData);
+    publish(INITIALIZE, charData);
+    publish(INITIALIZE, charData);
+    publish(INITIALIZE, charData);
 
 
 
     return 0;
 }
+
