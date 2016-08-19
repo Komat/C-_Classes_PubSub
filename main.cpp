@@ -79,8 +79,11 @@ void publish(std::string topic, void *data) {
 
     for (std::map<int, std::vector<TopicData> >::reverse_iterator i = list.rbegin(); i != list.rend(); ++i) {
         std::vector<TopicData> &funcList = i->second;
-        for (std::vector<TopicData>::iterator func = funcList.begin(); func != funcList.end(); ++func) {
-            (*func->subscriber)(topic, data);
+        std::vector<TopicData>::reverse_iterator iterator;
+
+        for (iterator = funcList.rbegin(); iterator != funcList.rend(); ++iterator)
+        {
+            (*iterator->subscriber)(topic, data);
         }
     }
 
@@ -91,36 +94,23 @@ const std::string INITIALIZE = "initialize";
 
 
 void subscribeHandler(const std::string topic, void *data) {
-    std::cout << " " << std::endl;
-    std::cout << ">>>>>>>>>>>>>>>>>>" << std::endl;
-    std::cout << topic << std::endl;
-    std::cout << (char *) data << std::endl;
-    std::cout << ">>>>>>>>>>>>>>>>>>" << std::endl;
-    unsubscribe(INITIALIZE, (topicFunctionPtr) subscribeHandler);
+    std::cout << "(01) >>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>" << std::endl;
+//    unsubscribe(INITIALIZE, (topicFunctionPtr) subscribeHandler);
 }
 
 void subSubscriber(const std::string topic, void *data) {
-    std::cout << " " << std::endl;
-    std::cout << "///////////////////////////////" << std::endl;
-    std::cout << topic << std::endl;
-    std::cout << (char *) data << std::endl;
-    std::cout << "\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\" << std::endl;
+    std::cout << "(02) ///////////////////////////////" << std::endl;
 }
 
 void subSubSubscriber(const std::string topic, void *data) {
-    std::cout << " " << std::endl;
-    std::cout << "-------------------------------------------------------------------------" << std::endl;
-    std::cout << topic << std::endl;
-    std::cout << (char *) data << std::endl;
-    std::cout << "-------------------------------------------------------------------------" << std::endl;
+    std::cout << "(03) -------------------------------" << std::endl;
 }
-
 int main() {
 
 
-    subscribe(INITIALIZE, (topicFunctionPtr) subscribeHandler);
-    subscribe(INITIALIZE, (topicFunctionPtr) subSubscriber);
-    subscribe(INITIALIZE, (topicFunctionPtr) subSubSubscriber);
+    subscribe(INITIALIZE, (topicFunctionPtr) subscribeHandler, 2);
+    subscribe(INITIALIZE, (topicFunctionPtr) subSubscriber, 0);
+    subscribe(INITIALIZE, (topicFunctionPtr) subSubSubscriber, 1);
 
 
     char charData[] = "TEST";
