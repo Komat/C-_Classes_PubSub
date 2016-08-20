@@ -41,6 +41,8 @@ public:
 
     void unsubscribe(const std::string &topic, topicFunctionPtr subscriber);
 
+    void unsubscribeAll(const std::string &topic);
+
     bool hasTopic(const std::string &topic);
 };
 
