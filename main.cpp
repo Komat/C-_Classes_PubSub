@@ -1,61 +1,169 @@
 #include <iostream>
-#include "PubSub.h"
+#include <list>
+#include <vector>
+#include <map>
+#include <unordered_map>
+#include <unordered_set>
 
 
-PubSub pub_sub;
+typedef std::function< void()> TopicFunc;
 
-const std::string INITIALIZE = "initialize";
+class EventEmitter {
+protected:
+    void *_context;
 
-
-void subscriber01(const std::string topic, void *data) {
-    std::cout << "(01) >>>>>>>>>>>>>" << topic << " : " << (char *) data <<  std::endl;
-    pub_sub.unsubscribe(INITIALIZE, (topicFunctionPtr) subscriber01);
-}
-
-
-void subscriber02(const std::string topic, void *data) {
-    std::cout << "(02) /////////////" << topic << " : " << (char *) data << std::endl;
-    pub_sub.unsubscribe(INITIALIZE, (topicFunctionPtr) subscriber02);
-}
-
-void subscriber03(const std::string topic, void *data) {
-    std::cout << "(03) -------------" << topic << " : " << (char *) data << std::endl;
-}
-
-void subscriber04(const std::string topic, void *data) {
-    std::cout << "(04) :::::::::::::" << topic << " : " << (char *) data << std::endl;
-}
+private:
+    std::unordered_map<std::string, std::map<int, std::vector<std::function< void() >> > > _subscriberList;
+    std::unordered_map<std::string,  std::vector<std::function< void() >> > _subscriberOnceList;
+    std::size_t _count = 0;
 
 
-void subscriber05(const std::string topic, void *data) {
-    std::cout << "(05) ~~~~~~~~~~~~" << topic << " : " << (char *) data << std::endl;
-}
+public:
+    EventEmitter() {
+        _context = this;
+    };
+
+    ~EventEmitter() {
+        _context = NULL;
+    };
+
+    template<class ...Args>
+    void emit(std::string topic, Args && ... args ) {
+        if(!has(topic)) {
+            return;
+        }
+        std::map<int, std::vector<std::function< void() >> > &topicList = _subscriberList[topic];
+        for (std::map<int, std::vector<std::function< void() >> >::reverse_iterator priorityList = topicList.rbegin(); priorityList != topicList.rend(); ++priorityList) {
+            std::vector<std::function< void() >> &subscriberList = priorityList->second;
+            std::vector<std::function< void() >>::reverse_iterator priorityItem;
+
+            for (priorityItem = subscriberList.rbegin(); priorityItem != subscriberList.rend(); ++priorityItem) {
+                (*priorityItem)(std::forward<Args>(args)...);
+
+                if (_subscriberOnceList.count(topic)) {
+                    if (!_subscriberOnceList[topic].empty()) {
+                        std::vector<std::function< void() >>::iterator onceItem = _subscriberOnceList[topic].begin();
+                        while (onceItem != _subscriberOnceList[topic].end()) {
+                            if ((*onceItem) == (*priorityItem)) {
+                                off(topic, (*priorityItem));
+                                onceItem = _subscriberOnceList[topic].erase(onceItem);
+                            } else {
+                                ++onceItem;
+                            }
+                        }
+                    }
+                }
+            }
+        }
+
+    };
+
+    void on(const std::string &topic, std::function< void()> subscriber, int priority = 0) {
+        _subscriberList[topic][priority].push_back(subscriber);
+        ++_count;
+    };
+
+    void once(const std::string &topic, std::function< void()> subscriber, int priority = 0) {
+        _subscriberList[topic][priority].push_back(subscriber);
+        _subscriberOnceList[topic].push_back(subscriber);
+        ++_count;
+    };
+
+
+    void off(const std::string &topic) {
+    };
+
+    void off(const std::string &topic, std::function<void()> subscriber) {
+        std::map<int, std::vector<std::function< void()>> > &topicList = _subscriberList[topic];
+
+        for (std::map<int, std::vector<std::function< void()>> >::reverse_iterator priorityList = topicList.rbegin(); priorityList != topicList.rend(); ++priorityList) {
+
+            std::vector<std::function< void()>> &subscriberList = priorityList->second;
+            std::vector<std::function< void()>>::iterator priorityItem;
+
+            for (priorityItem = subscriberList.begin(); priorityItem != subscriberList.end();) {
+                if (priorityItem == subscriber) {
+                    priorityItem = subscriberList.erase(subscriberList.begin() + std::distance(subscriberList.begin(), priorityItem));
+                    continue;
+                }
+                ++priorityItem;
+            }
+        }
+        if (topicList.empty()) _subscriberList.erase(topic);
+    };
+
+    void offAll() {
+        _subscriberList.clear();
+        _subscriberOnceList.clear();
+        _count = 0;
+    };
+
+    void offAll(const std::string &topic) {
+        if (!has(topic)) return;
+
+        std::map<int, std::vector<std::function< void()>> > &topicList = _subscriberList[topic];
+        std::map<int, std::vector<std::function< void()>> >::iterator priorityList = topicList.begin();
+
+        while (priorityList != topicList.end()) {
+            topicList.erase(priorityList++);
+        }
+
+        if (topicList.empty()) _subscriberList.erase(topic);
+    };
+
+    bool has(const std::string &topic) {
+        return (_subscriberList.find(topic) != _subscriberList.end());
+    };
+
+};
 
 
 int main() {
 
+    EventEmitter ee;
 
-    std::cout << "\n[ READY ]\n" << std::endl;
+    ee.on("event1", [](int a, std::string b) {
+        std::cout << "EVENT1(01) >> " << a << " : " << b<< std::endl;
+    });
 
-    pub_sub.subscribe(INITIALIZE, (topicFunctionPtr) subscriber01, 1);
-    pub_sub.subscribe(INITIALIZE, (topicFunctionPtr) subscriber02, 4);
-    pub_sub.subscribe(INITIALIZE, (topicFunctionPtr) subscriber03, 3);
-    pub_sub.subscribe(INITIALIZE, (topicFunctionPtr) subscriber04, 2);
-    pub_sub.subscribeOnce(INITIALIZE, (topicFunctionPtr) subscriber05, 2);
+    ee.on("event1", [](int a, std::string b) {
+        std::cout << "EVENT1(02) >> " << a << " : " << b<< std::endl;
+    });
 
-    char charData[] = "PARAMS";
+    ee.emit("event1", 10, (std::string) "foo");
 
-    pub_sub.publish(INITIALIZE, &charData);
+    ee.on("event2", []() {
+        std::cout << "EVENT2(01)" << std::endl;
+    });
 
-    std::cout << "\n[ PLAY01 ]\n" << std::endl;
+    ee.emit("event2");
 
-    pub_sub.publish(INITIALIZE, &charData);
+    int count1 = 0;
 
-    pub_sub.unsubscribeAll(INITIALIZE);
+    ee.on("event3", [&]() {
+        std::cout << "EVENT3(01) >> " << count1 << std::endl;
+    });
 
-    std::cout << "\n[ PLAY02 ]\n" << std::endl;
+    for (int i = 0; i < 10; i++) {
+        ee.emit("event3");
+    }
 
-    pub_sub.publish(INITIALIZE, &charData);
+    int count2 = 0;
+    ee.on("event4", [&](){
+        count2++;
+        std::cout << "EVENT4(01) >> " << count2 << std::endl;
+    });
+
+    ee.emit("event4");
+    ee.off("event4");
+    ee.emit("event4");
+    ee.emit("event4");
+
+    int count3 = 0;
+    ee.on("event5", [&]() {
+        count3++;
+        std::cout << "EVENT5(01) >> " << count3 << std::endl;
+    });
 
     return 0;
 }
