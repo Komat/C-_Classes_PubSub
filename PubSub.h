@@ -15,7 +15,7 @@
 #include <map>
 
 
-typedef void (*topicFunctionPtr)(std::string topic, void * topicOption);
+typedef std::function<void(std::string topic, void * topicOption)> TopicFunc;
 
 
 class PubSub {
@@ -25,12 +25,11 @@ protected:
 private:
 
     typedef struct topic_data {
-        topicFunctionPtr subscriber;
+        TopicFunc subscriber;
     } TopicData;
 
-
     std::map<const std::string, std::map<int, std::vector<TopicData> > > _subscriberList;
-    std::map<const std::string,  std::vector<TopicData> > _subscriberOnceList;
+    std::map<const std::string, std::vector<TopicData> > _subscriberOnceList;
 
 
 public:
@@ -40,13 +39,13 @@ public:
 
     void publish(std::string topic, void *topicOption);
 
-    void subscribe(const std::string &topic, topicFunctionPtr subscriber, int priority = 0);
+    void subscribe(const std::string &topic, TopicFunc subscriber, int priority = 0);
 
-    void subscribeOnce(const std::string &topic, topicFunctionPtr subscriber, int priority = 0);
+    void subscribeOnce(const std::string &topic, TopicFunc subscriber, int priority = 0);
 
     void unsubscribe(const std::string &topic);
 
-    void unsubscribe(const std::string &topic, topicFunctionPtr subscriber);
+    void unsubscribe(const std::string &topic, TopicFunc subscriber);
 
     void unsubscribeAll(const std::string &topic);
 

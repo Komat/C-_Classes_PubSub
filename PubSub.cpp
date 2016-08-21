@@ -41,19 +41,37 @@ void PubSub::publish(std::string topic, void *topicOption) {
         std::vector<TopicData>::reverse_iterator priorityItem;
 
         for (priorityItem = subscriberList.rbegin(); priorityItem != subscriberList.rend(); ++priorityItem) {
-            (*priorityItem->subscriber)(topic, topicOption);
+            (priorityItem->subscriber)(topic, topicOption);
 
             if (_subscriberOnceList.count(topic)) {
                 if (!_subscriberOnceList[topic].empty()) {
-                    std::vector<TopicData>::iterator onceItem = _subscriberOnceList[topic].begin();
-                    while (onceItem != _subscriberOnceList[topic].end()) {
-                        if ((*onceItem->subscriber) == (*priorityItem->subscriber)) {
-                            unsubscribe(topic, (*priorityItem->subscriber));
-                            onceItem = _subscriberOnceList[topic].erase(onceItem);
-                        } else {
-                            ++onceItem;
+//                    std::vector<TopicData>::iterator onceItem = _subscriberOnceList[topic].begin();
+//                    while (onceItem != _subscriberOnceList[topic].end()) {
+//                        if (*onceItem == *priorityItem) {
+//                            unsubscribe(topic, (priorityItem->subscriber));
+//                            onceItem = _subscriberOnceList[topic].erase(onceItem);
+//                        } else {
+//                            ++onceItem;
+//                        }
+//                    }
+                    std::vector<TopicData>::reverse_iterator onceItem;
+
+                    for(onceItem = subscriberList.rbegin(); onceItem != subscriberList.rend(); onceItem++)
+                    {
+                        if ((onceItem->subscriber) == (priorityItem->subscriber)) {
+                            subscriberList.erase((++onceItem).base());
+                            continue;
                         }
+                        ++onceItem;
                     }
+//                    while (onceItem != _subscriberOnceList[topic].end()) {
+//                        if (*onceItem == *priorityItem) {
+//                            unsubscribe(topic, (priorityItem->subscriber));
+//                            onceItem = _subscriberOnceList[topic].erase(onceItem);
+//                        } else {
+//                            ++onceItem;
+//                        }
+//                    }
                 }
             }
         }
@@ -66,13 +84,11 @@ void PubSub::publish(std::string topic, void *topicOption) {
  * @param subscriber
  * @param priority
  */
-void PubSub::subscribe(const std::string &topic, topicFunctionPtr subscriber, int priority) {
-
+void PubSub::subscribe(const std::string &topic, TopicFunc subscriber, int priority) {
     TopicData data;
     data.subscriber = subscriber;
 
     _subscriberList[topic][priority].push_back(data);
-
 }
 
 /**
@@ -81,7 +97,7 @@ void PubSub::subscribe(const std::string &topic, topicFunctionPtr subscriber, in
  * @param subscriber
  * @param priority
  */
-void PubSub::subscribeOnce(const std::string &topic, topicFunctionPtr subscriber, int priority) {
+void PubSub::subscribeOnce(const std::string &topic, TopicFunc subscriber, int priority) {
 
     TopicData data;
     data.subscriber = subscriber;
@@ -106,22 +122,42 @@ void PubSub::unsubscribe(const std::string &topic) {
  * @param topic
  * @param subscriber
  */
-void PubSub::unsubscribe(const std::string &topic, topicFunctionPtr subscriber) {
+void PubSub::unsubscribe(const std::string &topic, TopicFunc subscriber) {
 
     std::map<int, std::vector<TopicData> > &topicList = _subscriberList[topic];
+    std::map<int, std::vector<TopicData> >::reverse_iterator priorityList;
 
-    for (std::map<int, std::vector<TopicData> >::reverse_iterator priorityList = topicList.rbegin(); priorityList != topicList.rend(); ++priorityList) {
+    for (priorityList = topicList.rbegin(); priorityList != topicList.rend(); ++priorityList) {
 
         std::vector<TopicData> &subscriberList = priorityList->second;
-        std::vector<TopicData>::iterator priorityItem;
+        std::vector<TopicData>::reverse_iterator priorityItem;
 
-        for (priorityItem = subscriberList.begin(); priorityItem != subscriberList.end();) {
-            if (priorityItem->subscriber == subscriber) {
-                priorityItem = subscriberList.erase(subscriberList.begin() + std::distance(subscriberList.begin(), priorityItem));
-                continue;
-            }
-            ++priorityItem;
-        }
+//        for(priorityItem = subscriberList.rbegin(); priorityItem != subscriberList.rend(); priorityItem++)
+//        {
+//            if (priorityItem->subscriber == subscriber) {
+//                subscriberList.erase((++priorityItem).base());
+//                continue;
+//            }
+//            ++priorityItem;
+//        }
+
+//        std::vector<TopicData>::reverse_iterator priorityItem;
+//
+//        for (priorityItem = subscriberList.begin(); priorityItem != subscriberList.end();) {
+//            if (priorityItem->subscriber == subscriber) {
+//                priorityItem = subscriberList.erase(subscriberList.begin() + std::distance(subscriberList.begin(), priorityItem));
+//                continue;
+//            }
+//            ++priorityItem;
+//        }
+//        for (priorityItem = subscriberList.rbegin(); priorityItem != subscriberList.rend();) {
+//            if (priorityItem->subscriber == subscriber) {
+//                priorityItem = subscriberList.erase(subscriberList.rbegin() + priorityItem);
+//                continue;
+//            } else {
+//                ++priorityItem;
+//            }
+//        }
     }
 
     if (topicList.empty()) _subscriberList.erase(topic);
