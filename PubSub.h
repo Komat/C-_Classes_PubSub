@@ -1,7 +1,7 @@
 /**
  * @description
  * @fileName PubSub.h.
- * @author komatsu
+ * @author komat
  * @date 8/16/16.
  * @version 0.0
  */
@@ -12,14 +12,11 @@
 #include <iostream>
 #include <string>
 #include <map>
-//#include <list>
 #include <unordered_set>
 #include <vector>
 
 
-template<
-        class TopicHandler = std::function<void()>
->
+template<typename TopicHandler = std::function<void()>>
 class PubSub {
 private:
 
@@ -35,7 +32,6 @@ public:
         if (!hasTopic(topic)) {
             return;
         }
-
         auto &topicList = _subscriberList[topic]; // std::map
 
         for (auto priorityList = topicList.begin(); priorityList != topicList.end(); ++priorityList) {
@@ -63,14 +59,14 @@ public:
     };
 
 
-    void subscribe(const std::string &topic, TopicHandler subscriber, int priority = 0) {
+    void subscribe(const std::string &topic, TopicHandler subscriber, int priority) {
         _subscriberList[topic][priority].push_back(subscriber);
         ++_topicCount;
     };
 
 
     void subscribeOnce(const std::string &topic, TopicHandler subscriber, int priority = 0) {
-        auto & listeners = _subscriberList[topic][priority];
+        auto &listeners = _subscriberList[topic][priority];
         listeners.push_back(subscriber);
         _subscriberOnceList[topic].insert(&listeners.back());
         ++_topicCount;
@@ -114,7 +110,6 @@ public:
     bool hasTopic(const std::string &topic) {
         return (_subscriberList.find(topic) != _subscriberList.end());
     };
-
 
 };
 

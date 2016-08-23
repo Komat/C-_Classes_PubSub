@@ -2,7 +2,6 @@
 #include "PubSub.h"
 
 
-//using TopicHandlerT = std::function< void( const std::string & str, const std::string & msg) >;
 using TopicHandlerT = std::function< void(const std::string &topic, const std::string & str) >;
 
 
@@ -84,6 +83,7 @@ int main() {
     pub_sub.publish(DEINITIALIZE, "PARAMS");
 
     std::cout << "\n[ PLAY04 END ]\n" << std::endl;
+
 
     return 0;
 }
