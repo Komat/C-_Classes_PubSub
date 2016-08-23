@@ -38,15 +38,15 @@ public:
             auto &subscriberList = priorityList->second; // std::vector
 
             for (auto priorityItem = subscriberList.begin(); priorityItem != subscriberList.end();) {
-                auto &listener = *priorityItem; // TopicHandler
-                listener(topic, std::forward<Args>(args)...);
+                auto &topicHandler = *priorityItem; // TopicHandler
+                topicHandler(topic, std::forward<Args>(args)...);
 
                 if (_subscriberOnceList.count(topic)) {
-                    if (_subscriberOnceList[topic].count(&listener)) {
+                    if (_subscriberOnceList[topic].count(&topicHandler)) {
                         priorityItem = subscriberList.erase(
                                 subscriberList.begin() + std::distance(subscriberList.begin(), priorityItem)
                         );
-                        _subscriberOnceList[topic].erase(&listener);
+                        _subscriberOnceList[topic].erase(&topicHandler);
                     } else {
                         ++priorityItem;
                     }
