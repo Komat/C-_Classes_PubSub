@@ -11,9 +11,10 @@
 
 #include <iostream>
 #include <string>
-#include <vector>
 #include <map>
+//#include <list>
 #include <unordered_set>
+#include <vector>
 
 
 template<
@@ -22,8 +23,9 @@ template<
 class PubSub {
 private:
 
+    std::size_t _topicCount = 0; // TODO: カウント数の定義・使用用途が曖昧なため現状使用不可
     std::map<const std::string, std::map<int, std::vector<TopicHandler> > > _subscriberList;
-    std::map<const std::string, std::unordered_set<const TopicHandler *> > _subscriberOnceList;
+    std::map<const std::string, std::unordered_set<TopicHandler *> > _subscriberOnceList;
 
 public:
 
@@ -34,18 +36,20 @@ public:
             return;
         }
 
-        auto &topicList = _subscriberList[topic];
+        auto &topicList = _subscriberList[topic]; // std::map
 
-        for (auto priorityList = topicList.rbegin(); priorityList != topicList.rend(); ++priorityList) {
-            auto &subscriberList = priorityList->second;
+        for (auto priorityList = topicList.begin(); priorityList != topicList.end(); ++priorityList) {
+            auto &subscriberList = priorityList->second; // std::vector
 
-            for (auto priorityItem = subscriberList.rbegin(); priorityItem != subscriberList.rend();) {
-                auto &listener = *priorityItem;
+            for (auto priorityItem = subscriberList.begin(); priorityItem != subscriberList.end();) {
+                auto &listener = *priorityItem; // TopicHandler
                 listener(topic, std::forward<Args>(args)...);
 
                 if (_subscriberOnceList.count(topic)) {
                     if (_subscriberOnceList[topic].count(&listener)) {
-//                        priorityItem = subscriberList.erase(priorityItem);
+                        priorityItem = subscriberList.erase(
+                                subscriberList.begin() + std::distance(subscriberList.begin(), priorityItem)
+                        );
                         _subscriberOnceList[topic].erase(&listener);
                     } else {
                         ++priorityItem;
@@ -53,21 +57,6 @@ public:
                 } else {
                     ++priorityItem;
                 }
-
-//                if (_subscriberOnceList.count(topic)) {
-//                    if (!_subscriberOnceList[topic].empty()) {
-//                        auto onceItem = _subscriberOnceList[topic].begin();
-//                        while (onceItem != _subscriberOnceList[topic].end()) {
-//                            std::cout << (onceItem == listener ? "TRUE" : "FALSE") << std::endl;
-////                            if (onceItem == listener) {
-////                                priorityItem = priorityItem.eraes(onceItem);
-////                                onceItem = _subscriberOnceList[topic].erase(onceItem);
-////                            } else {
-//                                ++onceItem;
-////                            }
-//                        }
-//                    }
-//                }
             }
         }
 
@@ -76,54 +65,49 @@ public:
 
     void subscribe(const std::string &topic, TopicHandler subscriber, int priority = 0) {
         _subscriberList[topic][priority].push_back(subscriber);
+        ++_topicCount;
     };
 
 
     void subscribeOnce(const std::string &topic, TopicHandler subscriber, int priority = 0) {
-        _subscriberList[topic][priority].push_back(subscriber);
-        _subscriberOnceList[topic].insert(&subscriber);
+        auto & listeners = _subscriberList[topic][priority];
+        listeners.push_back(subscriber);
+        _subscriberOnceList[topic].insert(&listeners.back());
+        ++_topicCount;
     };
 
 
     void unsubscribe(const std::string &topic) {
-        unsubscribeAll(topic);
-    };
 
+        if (!hasTopic(topic)) {
+            return;
+        }
 
-    void unsubscribe(const std::string &topic, TopicHandler subscriber) {
-        std::map<int, std::vector<TopicHandler> > &topicList = _subscriberList[topic];
+        auto &topicList = _subscriberList[topic]; // std::map
 
-//        for (std::map<int, std::vector<TopicHandler> >::reverse_iterator priorityList = topicList.rbegin();
-//             priorityList != topicList.rend(); ++priorityList) {
-//
-//            std::vector<TopicHandler> &subscriberList = priorityList->second;
-//            std::vector<TopicHandler>::iterator priorityItem;
-//
-//            for (priorityItem = subscriberList.begin(); priorityItem != subscriberList.end();) {
-//                if (priorityItem == subscriber) {
-//                    priorityItem = subscriberList.erase(
-//                            subscriberList.begin() + std::distance(subscriberList.begin(), priorityItem));
-//                    continue;
-//                }
-//                ++priorityItem;
-//            }
-//        }
+        for (auto priorityList = topicList.begin(); priorityList != topicList.end(); ++priorityList) {
+            auto &subscriberList = priorityList->second; // std::vector
+
+            for (auto priorityItem = subscriberList.begin(); priorityItem != subscriberList.end();) {
+                priorityItem = subscriberList.erase(
+                        subscriberList.begin() + std::distance(subscriberList.begin(), priorityItem)
+                );
+            }
+        }
+
+        if (!_subscriberOnceList[topic].empty()) {
+            _subscriberOnceList[topic].clear();
+        }
 
         if (topicList.empty()) _subscriberList.erase(topic);
+
     };
 
 
-    void unsubscribeAll(const std::string &topic) {
-        if (!hasTopic(topic)) return;
-
-//        std::map<int, std::vector<TopicHandler> > &topicList = _subscriberList[topic];
-//        std::map<int, std::vector<TopicHandler> >::iterator priorityList = topicList.begin();
-//
-//        while (priorityList != topicList.end()) {
-//            topicList.erase(priorityList++);
-//        }
-
-//        if (topicList.empty()) _subscriberList.erase(topic);
+    void unsubscribeAll() {
+        _subscriberList.clear();
+        _subscriberOnceList.clear();
+        _topicCount = 0;
     };
 
 

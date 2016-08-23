@@ -9,16 +9,15 @@ using TopicHandlerT = std::function< void(const std::string &topic, const std::s
 PubSub<TopicHandlerT> pub_sub;
 
 std::string INITIALIZE = "initialize";
+std::string DEINITIALIZE = "deinitialize";
 
 void subscriber01(const std::string &topic, const std::string & str) {
     std::cout << "(01) >>>>>>>>>>>>>" << topic << "::" << str  <<  std::endl;
-//    pub_sub.unsubscribe("INITIALISE", subscriber01);
 }
 
 
 void subscriber02(const std::string &topic, const std::string & str) {
     std::cout << "(02) /////////////" << topic << "::" << str  << std::endl;
-//    pub_sub.unsubscribe("INITIALISE", subscriber02);
 }
 
 void subscriber03(const std::string &topic, const std::string & str) {
@@ -34,6 +33,11 @@ void subscriber05(const std::string &topic, const std::string & str) {
     std::cout << "(05) ~~~~~~~~~~~~" << topic << "::" << str  << std::endl;
 }
 
+
+
+
+
+
 int main() {
 
 
@@ -46,17 +50,40 @@ int main() {
     pub_sub.subscribe(INITIALIZE, subscriber04, 2);
     pub_sub.subscribeOnce(INITIALIZE, subscriber05, 2);
 
-    pub_sub.publish(INITIALIZE, "PARAMS");
+    pub_sub.subscribe(DEINITIALIZE, subscriber01, 1);
+    pub_sub.subscribe(DEINITIALIZE, subscriber02, 4);
+    pub_sub.subscribe(DEINITIALIZE, subscriber03, 3);
+    pub_sub.subscribe(DEINITIALIZE, subscriber04, 2);
+    pub_sub.subscribeOnce(DEINITIALIZE, subscriber05, 2);
 
-//    std::cout << "\n[ PLAY01 ]\n" << std::endl;
-//
-//    pub_sub.publish(INITIALIZE, &charData);
-//
-//    pub_sub.unsubscribeAll(INITIALIZE);
-//
-//    std::cout << "\n[ PLAY02 ]\n" << std::endl;
-//
-//    pub_sub.publish(INITIALIZE, &charData);
+    std::cout << "\n[ PLAY01 START ]\n" << std::endl;
+
+    pub_sub.publish(INITIALIZE, "PARAMS");
+    pub_sub.publish(DEINITIALIZE, "PARAMS");
+
+    std::cout << "\n[ PLAY01 END ]" << std::endl;
+    std::cout << "[ PLAY02 START ]\n" << std::endl;
+
+    pub_sub.publish(INITIALIZE, "PARAMS");
+    pub_sub.publish(DEINITIALIZE, "PARAMS");
+
+    pub_sub.unsubscribe(DEINITIALIZE);
+
+    std::cout << "\n[ PLAY02 END ]" << std::endl;
+    std::cout << "[ PLAY03 START ]\n" << std::endl;
+
+    pub_sub.publish(INITIALIZE, "PARAMS");
+    pub_sub.publish(DEINITIALIZE, "PARAMS");
+
+    pub_sub.unsubscribeAll();
+
+    std::cout << "\n[ PLAY03 END ]" << std::endl;
+    std::cout << "[ PLAY04 START ]\n" << std::endl;
+
+    pub_sub.publish(INITIALIZE, "PARAMS");
+    pub_sub.publish(DEINITIALIZE, "PARAMS");
+
+    std::cout << "\n[ PLAY04 END ]\n" << std::endl;
 
     return 0;
 }
