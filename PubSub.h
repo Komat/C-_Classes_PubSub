@@ -13,6 +13,7 @@
 #include <string>
 #include <vector>
 #include <map>
+#include <unordered_set>
 
 
 template<
@@ -22,7 +23,7 @@ class PubSub {
 private:
 
     std::map<const std::string, std::map<int, std::vector<TopicHandler> > > _subscriberList;
-    std::map<const std::string, std::vector<TopicHandler> > _subscriberOnceList;
+    std::map<const std::string, std::unordered_set<const TopicHandler *> > _subscriberOnceList;
 
 public:
 
@@ -43,14 +44,9 @@ public:
                 listener(topic, std::forward<Args>(args)...);
 
                 if (_subscriberOnceList.count(topic)) {
-                    if (!_subscriberOnceList[topic].empty()) {
-                        if (_subscriberOnceList[topic].count(&listener)) {
-                            priorityItem = subscriberList.erase(priorityItem);
-                            _subscriberOnceList[topic].erase(&listener);
-                        } else {
-                            ++priorityItem;
-                        }
-
+                    if (_subscriberOnceList[topic].count(&listener)) {
+//                        priorityItem = subscriberList.erase(priorityItem);
+                        _subscriberOnceList[topic].erase(&listener);
                     } else {
                         ++priorityItem;
                     }
@@ -85,7 +81,7 @@ public:
 
     void subscribeOnce(const std::string &topic, TopicHandler subscriber, int priority = 0) {
         _subscriberList[topic][priority].push_back(subscriber);
-        _subscriberOnceList[topic].push_back(subscriber);
+        _subscriberOnceList[topic].insert(&subscriber);
     };
 
 
