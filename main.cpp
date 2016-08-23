@@ -2,10 +2,8 @@
 #include "PubSub.h"
 
 
-using TopicHandlerT = std::function< void(const std::string &topic, const std::string & str) >;
 
-
-PubSub<TopicHandlerT> pub_sub;
+PubSub<> pub_sub;
 
 std::string INITIALIZE = "initialize";
 std::string DEINITIALIZE = "deinitialize";

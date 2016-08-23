@@ -16,7 +16,7 @@
 #include <vector>
 
 
-template<typename TopicHandler = std::function<void()>>
+template<typename TopicHandler = std::function<void(const std::string &topic, const std::string & str)>>
 class PubSub {
 private:
 
