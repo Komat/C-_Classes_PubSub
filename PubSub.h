@@ -9,108 +9,162 @@
 #ifndef PUBSUB_PUBSUB_H
 #define PUBSUB_PUBSUB_H
 
+#include <functional>
 #include <iostream>
-#include <string>
-#include <map>
+#include <unordered_map>
 #include <unordered_set>
-#include <vector>
+#include <list>
 
+template<
+        class EventType = std::string,
+        class Listener = std::function< void() >
+>
+class PubSub
+{
+public:
 
-template<typename TopicHandler = std::function<void(const std::string &topic, const std::string & str)>>
-class PubSub {
-private:
-
-    std::size_t _topicCount = 0; // TODO: カウント数の定義・使用用途が曖昧なため現状使用不可
-    std::map<const std::string, std::map<int, std::vector<TopicHandler> > > _subscriberList;
-    std::map<const std::string, std::unordered_set<TopicHandler *> > _subscriberOnceList;
+    using Once = bool;
+    using EventEmitterT = PubSub< EventType, Listener >;
+    using Listeners = std::list< Listener >;
+    using Range = std::pair< typename Listeners::iterator, typename Listeners::iterator >;
+    using ListenersMap = std::unordered_map< EventType, Listeners >;
+    using OnceMap = std::unordered_set< const Listener * >;
 
 public:
 
+    PubSub( const PubSub & ) = delete;
+    PubSub & operator= ( const PubSub & ) = delete;
+
+    PubSub() {}
+
+    PubSub( EventEmitterT && ee )
+            :
+            _map( std::move( ee._map ) ),
+            _onceMap( std::move( ee._onceMap) ),
+            _countListeners( ee._countListeners )
+    {}
+
+    EventEmitterT & on( const EventType & event, const Listener & listener )
+    {
+        _map[ event ].push_back( listener );
+        ++_countListeners;
+        return *this;
+    }
+
+    EventEmitterT & subscribeOnce( const EventType & event, const Listener & listener )
+    {
+        auto & listeners = _map[ event ];
+        listeners.push_back( listener );
+        ++_countListeners;
+        _onceMap.insert( &listeners.back() );
+
+        return *this;
+    }
+
     template<class ...Args>
-    void publish(const std::string &topic, Args &&... args) {
+    void publish(const EventType &event, Args &&... args)
+    {
+        auto it = _map.find( event );
+        if( it != _map.end() )
+        {
+            auto & listeners = it->second;
+            auto itListeners = listeners.begin();
+            auto itEndListeners = listeners.end();
 
-        if (!hasTopic(topic)) {
-            return;
+            while( itListeners != itEndListeners ) {
+                auto &listener = *itListeners;
+                listener(std::forward<Args>(args)...);
+
+                if( _onceMap.count( &listener ) )
+                {
+                    itListeners = listeners.erase(itListeners);
+                    --_countListeners;
+                    _onceMap.erase( &listener );
+                }
+                ++itListeners;
+            }
         }
-        auto &topicList = _subscriberList[topic]; // std::map
+    }
 
-        for (auto priorityList = topicList.begin(); priorityList != topicList.end(); ++priorityList) {
-            auto &subscriberList = priorityList->second; // std::vector
+    void off()
+    {
+        _map.clear();
+        _onceMap.clear();
+        _countListeners = 0;
+    }
 
-            for (auto priorityItem = subscriberList.begin(); priorityItem != subscriberList.end();) {
-                auto &topicHandler = *priorityItem; // TopicHandler
-                topicHandler(topic, std::forward<Args>(args)...);
+    void off( const EventType & event )
+    {
+        auto it = _map.find( event );
+        if( it != _map.end() )
+        {
+            auto s = it->second.size();
+            _countListeners -= s;
+            _map.erase( it );
 
-                if (_subscriberOnceList.count(topic)) {
-                    if (_subscriberOnceList[topic].count(&topicHandler)) {
-                        priorityItem = subscriberList.erase(
-                                subscriberList.begin() + std::distance(subscriberList.begin(), priorityItem)
-                        );
-                        _subscriberOnceList[topic].erase(&topicHandler);
-                    } else {
-                        ++priorityItem;
-                    }
-                } else {
-                    ++priorityItem;
+            if( _map.empty() )
+            {
+                _onceMap.clear();
+            }
+        }
+    }
+
+    Range listeners( const EventType & event )
+    {
+        auto it = _map.find( event );
+        if( it == _map.end() )
+        {
+            return Range{};
+        }
+
+        return Range( it->second.begin(), it->second.end() );
+    }
+
+    Listener * listener( const EventType & event )
+    {
+        auto it = _map.find( event );
+        if( it != _map.end() )
+        {
+            auto & listeners = it->second;
+            return &listeners.front();
+        }
+
+        return nullptr;
+    }
+
+    std::size_t countListeners() const
+    {
+        return _countListeners;
+    }
+
+    bool remove( const Listener & listener )
+    {
+        for( auto & p : _map )
+        {
+            auto & listeners = p.second;
+            auto it = std::begin( listeners );
+            auto itEnd = std::end( listeners );
+
+            for( ; it != itEnd; ++it )
+            {
+                if( &*it == &listener )
+                {
+                    listeners.erase( it );
+                    --_countListeners;
+                    return true;
                 }
             }
         }
 
-    };
+        return false;
+    }
 
+private:
 
-    void subscribe(const std::string &topic, TopicHandler subscriber, int priority) {
-        _subscriberList[topic][priority].push_back(subscriber);
-        ++_topicCount;
-    };
-
-
-    void subscribeOnce(const std::string &topic, TopicHandler subscriber, int priority = 0) {
-        auto &listeners = _subscriberList[topic][priority];
-        listeners.push_back(subscriber);
-        _subscriberOnceList[topic].insert(&listeners.back());
-        ++_topicCount;
-    };
-
-
-    void unsubscribe(const std::string &topic) {
-
-        if (!hasTopic(topic)) {
-            return;
-        }
-
-        auto &topicList = _subscriberList[topic]; // std::map
-
-        for (auto priorityList = topicList.begin(); priorityList != topicList.end(); ++priorityList) {
-            auto &subscriberList = priorityList->second; // std::vector
-
-            for (auto priorityItem = subscriberList.begin(); priorityItem != subscriberList.end();) {
-                priorityItem = subscriberList.erase(
-                        subscriberList.begin() + std::distance(subscriberList.begin(), priorityItem)
-                );
-            }
-        }
-
-        if (!_subscriberOnceList[topic].empty()) {
-            _subscriberOnceList[topic].clear();
-        }
-
-        if (topicList.empty()) _subscriberList.erase(topic);
-
-    };
-
-
-    void unsubscribeAll() {
-        _subscriberList.clear();
-        _subscriberOnceList.clear();
-        _topicCount = 0;
-    };
-
-
-    bool hasTopic(const std::string &topic) {
-        return (_subscriberList.find(topic) != _subscriberList.end());
-    };
-
+    ListenersMap _map;
+    OnceMap _onceMap;
+    std::size_t _countListeners = 0;
 };
+
 
 #endif //PUBSUB_PUBSUB_H
