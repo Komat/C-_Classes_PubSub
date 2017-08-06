@@ -62,7 +62,7 @@ public:
     };
 
 
-    void subscribe(const Topic &topic, TopicHandler subscriber, int priority) {
+    void subscribe(const Topic &topic, TopicHandler subscriber, int priority = 0) {
         _subscriberList[topic][priority].push_back(subscriber);
         ++_observerCount;
     };
